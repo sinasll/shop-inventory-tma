@@ -12,9 +12,7 @@
     "./types": "./dist/types/index.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "echo \"(shared) no lint configured\""
+    "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "zod": "^3.23.8"
