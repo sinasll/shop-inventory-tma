@@ -1,0 +1,183 @@
+// ─────────────────────────────────────────────────────────────────────
+// ShopStock — Prisma schema
+// PostgreSQL (Neon). Normalized, strictly shop-isolated, indexed for
+// thousands of products & batches while staying free-tier friendly.
+// ─────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Locale {
+  badini
+  sorani
+  arabic
+  english
+}
+
+enum SubscriptionStatus {
+  active
+  expired
+  disabled
+}
+
+enum MovementType {
+  added
+  sold
+  discarded
+  damaged
+  returned
+  removed
+  adjusted
+}
+
+/// The whitelist + account record. Telegram ID is the natural primary key.
+model WhitelistedUser {
+  telegramId String             @id @map("telegram_id")
+  shopName   String             @map("shop_name")
+  username   String?
+  locale     Locale             @default(english)
+  status     SubscriptionStatus @default(active)
+  activeUntil DateTime?         @map("active_until")
+  isAdmin    Boolean            @default(false) @map("is_admin")
+
+  // Notification & app preferences (denormalized onto the user for speed).
+  notificationsEnabled Boolean @default(true) @map("notifications_enabled")
+  expiryAlertsEnabled  Boolean @default(true) @map("expiry_alerts_enabled")
+  lowStockAlertsEnabled Boolean @default(false) @map("low_stock_alerts_enabled")
+  dailyAlertTime       String  @default("09:00") @map("daily_alert_time") // HH:mm
+  timezone             String  @default("Asia/Baghdad")
+  expiryWarningDays    Int     @default(7) @map("expiry_warning_days")
+  lowStockThreshold    Int     @default(5) @map("low_stock_threshold")
+  scannerSound         Boolean @default(true) @map("scanner_sound")
+  scannerVibration     Boolean @default(true) @map("scanner_vibration")
+  preferRearCamera     Boolean @default(true) @map("prefer_rear_camera")
+  offlineCacheEnabled  Boolean @default(true) @map("offline_cache_enabled")
+
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  lastSeenAt DateTime? @map("last_seen_at")
+
+  products    Product[]
+  batches     InventoryBatch[]
+  movements   StockMovement[]
+  notificationLogs NotificationLog[]
+
+  @@index([status, activeUntil])
+  @@index([dailyAlertTime])
+  @@map("whitelisted_users")
+}
+
+/// Shop-specific product. Barcode is unique *per shop*, never globally.
+model Product {
+  id        String   @id @default(cuid())
+  ownerId   String   @map("owner_id")
+  owner     WhitelistedUser @relation(fields: [ownerId], references: [telegramId], onDelete: Cascade)
+
+  barcode   String
+  name      String
+  category  String?
+  imageUrl  String?  @map("image_url")
+  costPrice Decimal? @map("cost_price") @db.Decimal(14, 2)
+  sellPrice Decimal? @map("sell_price") @db.Decimal(14, 2)
+  note      String?
+  isFavorite Boolean @default(false) @map("is_favorite")
+  lastScannedAt DateTime? @map("last_scanned_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  batches   InventoryBatch[]
+  movements StockMovement[]
+
+  @@unique([ownerId, barcode], name: "owner_barcode")
+  @@index([ownerId, name])
+  @@index([ownerId, isFavorite])
+  @@index([ownerId, lastScannedAt])
+  @@map("products")
+}
+
+/// One stock delivery. Quantity decreases as stock leaves via movements.
+model InventoryBatch {
+  id        String   @id @default(cuid())
+  ownerId   String   @map("owner_id")
+  owner     WhitelistedUser @relation(fields: [ownerId], references: [telegramId], onDelete: Cascade)
+  productId String   @map("product_id")
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  quantity        Int
+  initialQuantity Int      @map("initial_quantity")
+  expiryDate      DateTime? @map("expiry_date") @db.Date
+  costPrice       Decimal? @map("cost_price") @db.Decimal(14, 2)
+  note            String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  movements StockMovement[]
+
+  // Critical index: expiry scans per shop scoped by quantity>0 in queries.
+  @@index([ownerId, expiryDate])
+  @@index([productId, expiryDate])
+  @@index([ownerId, quantity])
+  @@map("inventory_batches")
+}
+
+/// Immutable audit trail of every stock change (added / sold / etc.).
+model StockMovement {
+  id        String   @id @default(cuid())
+  ownerId   String   @map("owner_id")
+  owner     WhitelistedUser @relation(fields: [ownerId], references: [telegramId], onDelete: Cascade)
+  productId String   @map("product_id")
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  batchId   String?  @map("batch_id")
+  batch     InventoryBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+
+  type     MovementType
+  quantity Int
+  note     String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([ownerId, createdAt])
+  @@index([productId, createdAt])
+  @@map("stock_movements")
+}
+
+/// Tracks sent notifications to avoid duplicate daily sends.
+model NotificationLog {
+  id        String   @id @default(cuid())
+  ownerId   String   @map("owner_id")
+  owner     WhitelistedUser @relation(fields: [ownerId], references: [telegramId], onDelete: Cascade)
+
+  kind      String   // "daily" | "test"
+  sentForDate String @map("sent_for_date") // YYYY-MM-DD in user tz
+  success   Boolean
+  detail    String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([ownerId, kind, sentForDate], name: "owner_kind_date")
+  @@index([ownerId, createdAt])
+  @@map("notification_logs")
+}
+
+/// Append-only admin action log.
+model AdminAuditLog {
+  id           String   @id @default(cuid())
+  adminId      String   @map("admin_id")
+  action       String
+  targetUserId String?  @map("target_user_id")
+  metadata     Json?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([adminId, createdAt])
+  @@index([targetUserId])
+  @@map("admin_audit_logs")
+}

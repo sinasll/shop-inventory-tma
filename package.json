@@ -1,0 +1,29 @@
+{
+  "name": "shop-inventory-tma",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Production-ready Telegram Mini App for shop inventory, stock, expiry & loss management.",
+  "license": "MIT",
+  "packageManager": "pnpm@9.6.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm -r --parallel dev",
+    "dev:api": "pnpm --filter @inv/api dev",
+    "dev:web": "pnpm --filter @inv/web dev",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "db:generate": "pnpm --filter @inv/api db:generate",
+    "db:migrate": "pnpm --filter @inv/api db:migrate",
+    "db:deploy": "pnpm --filter @inv/api db:deploy",
+    "db:seed": "pnpm --filter @inv/api db:seed",
+    "db:studio": "pnpm --filter @inv/api db:studio",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "typescript": "^5.5.4"
+  }
+}

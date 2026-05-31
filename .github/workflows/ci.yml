@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.6.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @inv/api db:generate
+      - run: pnpm --filter @inv/shared build
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Build
+        run: pnpm build
+        env:
+          # Dummy values so Vite build (which doesn't need them) succeeds.
+          VITE_API_BASE_URL: https://api.example.com/api

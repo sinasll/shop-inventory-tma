@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --tg-bg: #ffffff;
+  --tg-secondary-bg: #f1f1f4;
+  --tg-text: #0f1115;
+  --tg-hint: #707991;
+  --tg-link: #2f7fd6;
+  --tg-button: #2f7fd6;
+  --tg-button-text: #ffffff;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--tg-secondary-bg);
+  color: var(--tg-text);
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Naskh Arabic',
+    'Noto Kufi Arabic', Tahoma, Helvetica, Arial, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+/* RTL support driven by <html dir>. */
+[dir='rtl'] {
+  text-align: right;
+}
+
+/* Hide scrollbars for the horizontal stat strip on mobile. */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Respect safe areas (notches / home indicator). */
+.safe-bottom {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px));
+}
+.safe-top {
+  padding-top: calc(env(safe-area-inset-top, 0px));
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl2 bg-tg-bg shadow-card;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold
+      transition active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100;
+  }
+  .btn-primary {
+    @apply btn bg-brand-500 text-white shadow-card active:bg-brand-600;
+  }
+  .btn-ghost {
+    @apply btn bg-tg-bg-secondary text-tg-text;
+  }
+  .btn-danger {
+    @apply btn bg-danger text-white active:bg-danger-dark;
+  }
+  .input {
+    @apply w-full rounded-xl border border-black/10 bg-tg-bg px-4 py-3 text-base outline-none
+      focus:border-brand-400 focus:ring-2 focus:ring-brand-200;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold;
+  }
+}

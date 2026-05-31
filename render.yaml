@@ -1,0 +1,47 @@
+# Render.com blueprint — deploys the API web service (which also runs the
+# node-cron notification scheduler in-process). The web frontend is hosted
+# separately on Vercel/Cloudflare Pages (see apps/web/vercel.json).
+#
+# Free-tier note: Render's free web service sleeps after inactivity, which
+# pauses cron. For reliable daily notifications on a budget, either:
+#   (a) keep it warm with an external uptime ping to /health, or
+#   (b) use Render's paid Background Worker, or run the API on Railway/Fly.
+services:
+  - type: web
+    name: shopstock-api
+    runtime: node
+    region: frankfurt
+    plan: free
+    branch: main
+    buildCommand: >-
+      corepack enable &&
+      corepack prepare pnpm@9.6.0 --activate &&
+      pnpm install --frozen-lockfile &&
+      pnpm --filter @inv/shared build &&
+      pnpm --filter @inv/api db:generate &&
+      pnpm --filter @inv/api build
+    startCommand: >-
+      pnpm --filter @inv/api db:deploy &&
+      node apps/api/dist/server.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: ADMIN_TELEGRAM_IDS
+        sync: false
+      - key: ADMIN_API_TOKEN
+        generateValue: true
+      - key: CORS_ORIGINS
+        sync: false
+      - key: NOTIFY_CRON
+        value: "* * * * *"
+      - key: INITDATA_MAX_AGE_SECONDS
+        value: "86400"
